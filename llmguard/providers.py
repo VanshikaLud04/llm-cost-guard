@@ -39,6 +39,12 @@ def call_groq(model: str, messages: list, temperature: float = 0.7, max_tokens: 
 
 def route_call(model: str, messages: list, temperature: float = 0.7, max_tokens: int = 1024) -> NormalizedResponse:
     from .pricing import MODEL_PROVIDER
+    from .mock_provider import call_mock      
     provider = MODEL_PROVIDER.get(model)
-    _MAP = {"openai": call_openai, "anthropic": call_anthropic, "groq": call_groq}
+    _MAP = {
+        "openai": call_openai,
+        "anthropic": call_anthropic,
+        "groq": call_groq,
+        "mock": call_mock,
+    }
     return _MAP[provider](model, messages, temperature, max_tokens)

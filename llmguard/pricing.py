@@ -5,7 +5,9 @@ MODEL_PROVIDER: dict[str, str] = {
     "claude-3-haiku-20240307": "anthropic",
     "claude-haiku-4-5": "anthropic",          
     "llama3-70b-8192": "groq", "llama3-8b-8192": "groq", "mixtral-8x7b-32768": "groq",
-    "llama-3.1-8b-instant": "groq",          
+    "llama-3.1-8b-instant": "groq",  
+    "mock-instant": "mock",     
+    "mock-large": "mock",         
 }
 
 MODEL_PRICING: dict[str, dict[str, float]] = {
@@ -19,7 +21,9 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "llama3-70b-8192": {"input": 0.00000059, "output": 0.00000079},
     "llama3-8b-8192": {"input": 0.00000005, "output": 0.00000008},
     "mixtral-8x7b-32768": {"input": 0.00000024, "output": 0.00000024},
-    "llama-3.1-8b-instant": {"input": 0.00000005, "output": 0.00000008},  
+    "llama-3.1-8b-instant": {"input": 0.00000005, "output": 0.00000008}, 
+    "mock-instant": {"input": 0.000001, "output": 0.000002},  
+    "mock-large":   {"input": 0.000005, "output": 0.000010}, 
 }
 
 FALLBACK_CHAIN: list[str] = [
@@ -28,5 +32,6 @@ FALLBACK_CHAIN: list[str] = [
     "gpt-4o-mini",
     "claude-haiku-4-5",          
     "llama3-70b-8192",
-    "llama-3.1-8b-instant",      
+    "llama-3.1-8b-instant",    
+    "mock-instant",   
 ]

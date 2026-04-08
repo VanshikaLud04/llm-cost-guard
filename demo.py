@@ -9,6 +9,12 @@ MSG = [{"role": "user", "content": "What is 2+2? One sentence only."}]
 def section(title: str):
     print(f"\n{'─'*55}\n  {title}\n{'─'*55}")
 
+def demo_mock():
+    section("Demo 0: Mock Provider (no API key needed)")
+    for i in range(3):
+        resp = call_llm("user_demo", "mock-instant", MSG)
+        print(f"  Call {i+1}: ✅ {resp.content}")
+        print(f"  📊 Tokens: {resp.input_tokens} in / {resp.output_tokens} out")
 
 def demo_openai():
     section("Demo 1: OpenAI (gpt-4o-mini)")
@@ -61,6 +67,7 @@ def inspect_db():
     for r in rows: print(f"  user={r[0]:<10} model={r[1]:<25} tokens={r[2]}+{r[3]}  cost=${r[4]:.8f}")
 
 if __name__ == "__main__":
+    demo_mock()
     demo_openai()
     demo_anthropic()
     demo_groq()
