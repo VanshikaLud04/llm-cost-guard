@@ -1,10 +1,12 @@
-# 🛡️ LLM Cost Guard
+# 🛡️ LLM-Cost-Guard
 
-> Production-style cost-aware middleware for LLM APIs — OpenAI, Anthropic Claude, and Groq
+> Cost-control middleware for LLM APIs that prevents runaway API spend using real-time burn rate monitoring and kill-switch enforcement.
 
-LLM APIs can cause uncontrolled cost spikes in production. 
-LLM-Cost-Guard is a middleware layer that monitors spend in real time, 
-enforces per-user budgets, and kills runaway requests before they cost you money.
+LLM APIs can cause uncontrolled cost spikes in production. LLM-Cost-Guard is a middleware layer that monitors spend in real time, enforces budgets, and blocks runaway requests before tokens are consumed — across OpenAI, Anthropic, and Groq through a single unified interface.
+
+> Designed to simulate production constraints like cost ceilings, failure handling, and provider fallback under load.
+
+Unlike traditional rate limiting, LLM cost control must account for token-based pricing and dynamic output sizes — making pre-call enforcement critical.
 
 ---
 
@@ -20,34 +22,34 @@ enforces per-user budgets, and kills runaway requests before they cost you money
 - **Slack alerts** — webhook notifications when killswitch or daily budget triggers
 - **Stress tested** — concurrent load testing with `stress_test.py`
 - **Pluggable storage** — SQLite active, Redis-ready interface for production scale
-- **Mock provider** — zero-config demo mode, no API keys required
 
----
 
 ## 🏗️ Architecture
 
 Every `call_llm()` request flows through a strict pipeline before any LLM provider is touched:
-<img width="1440" height="1228" alt="image" src="https://github.com/user-attachments/assets/1a2a128f-faf7-4995-8113-082fb28dfc79" />
+
+<img width="1440" height="1228" alt="image" src="https://github.com/user-attachments/assets/24bc9212-ec67-4f66-8797-5ae8fcf47440" />
+
+
 **Key design decisions:**
 - Killswitch runs *before* the API call — no tokens are spent on denied requests
-- Storage is abstracted behind `base.py` — swap SQLite for Redis with zero middleware changes  
+- Storage is abstracted behind `base.py` — swap SQLite for Redis with zero middleware changes
 - Fallback chain is deterministic: `gpt-4o → claude-sonnet → gpt-4o-mini → claude-haiku → llama3`
 - All cost calculations are deterministic and offline — no external pricing API calls
 
 ---
-
 ## 📸 Screenshots
 
 ### ✅ Unit Tests Passing
-<img width="1096" height="146" alt="image" src="https://github.com/user-attachments/assets/5561b81f-01ba-42db-9d5d-7049fb4979d6" />
+<img width="1096" height="146" alt="image" src="https://github.com/user-attachments/assets/34280dff-d7ea-4403-bde2-a749652ff734" />
 
 
 ### ✅ Groq Live Response
-<img width="1370" height="232" alt="image" src="https://github.com/user-attachments/assets/e93615d3-87b1-4c71-bb06-a350b345b294" />
+<img width="1370" height="232" alt="image" src="https://github.com/user-attachments/assets/a4cd863a-0870-4b03-8903-36a24b05402e" />
 
 
 ### ✅ FastAPI Swagger UI
-<img width="1280" height="721" alt="image" src="https://github.com/user-attachments/assets/011ea24f-0ff8-45e7-a666-d84aeeae1280" />
+<img width="1265" height="579" alt="image" src="https://github.com/user-attachments/assets/31319f08-833e-4f7a-8cdd-fc5f7c27f55f" />
 
 ---
 
@@ -171,7 +173,32 @@ Get real-time cost and usage stats for a user.
 
 ---
 
-## 🧠 How the Killswitch Works
+## ⚡ Why This Matters
+
+Traditional rate limiting reacts **after** usage has already occurred. LLM-Cost-Guard enforces limits **before** any tokens are spent:
+
+- Most systems detect overspending after the API call returns
+- LLM-Cost-Guard checks burn rate and budgets **before** routing to any provider
+- If limits are exceeded, the request is blocked and zero tokens are consumed
+- This prevents cost leaks instead of just reacting to them
+
+---
+
+## 💥 Example Scenario
+
+> A user sends 30 requests in 1 minute.
+>
+> → Burn rate spikes above `MAX_BURN_RATE_PER_MIN`  
+> → LLM-Cost-Guard detects abnormal cost velocity  
+> → Killswitch triggers **before** the next request is made  
+> → Slack alert fires  
+> → No additional tokens are spent  
+
+Run `python stress_test.py` to see this happen live with the mock provider — no API keys needed.
+
+---
+
+## ⚙️ Request Lifecycle (Critical Path)
 
 Every call to `call_llm()` runs through this pipeline **before** hitting any LLM:
 
@@ -193,6 +220,18 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 | claude-sonnet-4-5 | Anthropic | $0.000003 | $0.000015 |
 | claude-haiku-4-5 | Anthropic | $0.00000025 | $0.00000125 |
 | llama-3.1-8b-instant | Groq | $0.00000005 | $0.00000008 |
+
+---
+
+## 🧪 Design Decisions
+
+| Decision | Why |
+|---|---|
+| Sliding window burn rate | Detects cost spikes early, not just total spend |
+| Pre-call enforcement | Prevents cost instead of reacting to it |
+| Storage abstraction | Swap SQLite → Redis with zero middleware changes |
+| Deterministic cost calculation | No external pricing API — works fully offline |
+| Mock provider | Anyone can demo the killswitch without spending money |
 
 ---
 
