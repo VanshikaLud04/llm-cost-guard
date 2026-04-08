@@ -18,19 +18,35 @@ LLMGuard sits between your application and any LLM provider. It transparently tr
 - **Slack alerts** — webhook notifications when killswitch or daily budget triggers
 - **Stress tested** — concurrent load testing with `stress_test.py`
 - **Pluggable storage** — SQLite active, Redis-ready interface for production scale
+- **Mock provider** — zero-config demo mode, no API keys required
+
+---
+
+## 🏗️ Architecture
+
+Every `call_llm()` request flows through a strict pipeline before any LLM provider is touched:
+<img width="1440" height="1228" alt="image" src="https://github.com/user-attachments/assets/1a2a128f-faf7-4995-8113-082fb28dfc79" />
+**Key design decisions:**
+- Killswitch runs *before* the API call — no tokens are spent on denied requests
+- Storage is abstracted behind `base.py` — swap SQLite for Redis with zero middleware changes  
+- Fallback chain is deterministic: `gpt-4o → claude-sonnet → gpt-4o-mini → claude-haiku → llama3`
+- All cost calculations are deterministic and offline — no external pricing API calls
 
 ---
 
 ## 📸 Screenshots
 
 ### ✅ Unit Tests Passing
-![alt text](image.png)
+<img width="1096" height="146" alt="image" src="https://github.com/user-attachments/assets/5561b81f-01ba-42db-9d5d-7049fb4979d6" />
+
 
 ### ✅ Groq Live Response
-![alt text](image-3.png)
+<img width="1370" height="232" alt="image" src="https://github.com/user-attachments/assets/e93615d3-87b1-4c71-bb06-a350b345b294" />
+
 
 ### ✅ FastAPI Swagger UI
-![alt text](image-2.png)
+<img width="1280" height="721" alt="image" src="https://github.com/user-attachments/assets/011ea24f-0ff8-45e7-a666-d84aeeae1280" />
+
 ---
 
 ## ⚙️ Setup
