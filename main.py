@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from llmguard.wrapper import call_llm, call_llm_with_fallback
-from llmguard.storage import Storage
+from llmguard.storage import storage
 from llmguard.burn import calculate_burn_rate
 from llmguard.config import BURN_RATE_WINDOW_SECONDS
 from llmguard.exceptions import (
@@ -32,8 +32,6 @@ app.state.limiter = limiter
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exceeded_handler(request, exc):
     return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again later."})
-
-storage = Storage()
 
 class ChatRequest(BaseModel):
     user_id: str

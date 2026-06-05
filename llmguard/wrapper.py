@@ -3,13 +3,12 @@ from .cost import calculate_cost
 from .burn import calculate_burn_rate
 from .killswitch import enforce_burn_rate, enforce_daily_budget
 from .alerts import alert_killswitch_triggered, alert_daily_budget_exceeded
-from .storage import Storage
+from .storage import storage
 from .providers import route_call, NormalizedResponse
 from .pricing import FALLBACK_CHAIN
 from .exceptions import BudgetExceededException, DailyBudgetExceededException, AllModelsExhaustedException
 from .config import (MAX_BURN_RATE_PER_MIN,BURN_RATE_WINDOW_SECONDS,USER_BUDGETS, DEFAULT_DAILY_BUDGET)
 logger = logging.getLogger(__name__)
-storage = Storage()
 
 def _check_limits(user_id: str) -> None:
     recent = storage.get_recent(user_id, BURN_RATE_WINDOW_SECONDS)

@@ -32,5 +32,6 @@ class CachedStorage:
     def get_history(self, user_id: str, limit: int = 100) -> list[tuple]:
         return self.sqlite.get_history(user_id, limit)
 
-Storage = CachedStorage
-__all__ = ["Storage"]
+storage = CachedStorage()
+Storage = CachedStorage  # keeping for backward compatibility in types
+__all__ = ["Storage", "storage"]

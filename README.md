@@ -31,11 +31,11 @@ Every `call_llm()` request flows through a strict pipeline before any LLM provid
 <img width="1440" height="1228" alt="image" src="https://github.com/user-attachments/assets/24bc9212-ec67-4f66-8797-5ae8fcf47440" />
 
 
-**Key design decisions:**
-- Killswitch runs *before* the API call — no tokens are spent on denied requests
-- Storage is abstracted behind `base.py` — swap SQLite for Redis with zero middleware changes
-- Fallback chain is deterministic: `gpt-4o → claude-sonnet → gpt-4o-mini → claude-haiku → llama3`
-- All cost calculations are deterministic and offline — no external pricing API calls
+**Key Design Decisions:**
+- **Pre-Call Killswitch:** Budget checks run *before* the API call, ensuring zero tokens are spent on denied requests.
+- **High-Throughput Caching:** Employs Redis Sorted Sets for low-latency token tracking under heavy load, gracefully falling back to SQLite.
+- **Deterministic Routing:** Provides guaranteed fallback chains: `gpt-4o → claude-sonnet → gpt-4o-mini → claude-haiku → llama3`.
+- **Offline Cost Calculation:** All cost metrics are evaluated deterministically offline, eliminating latency from external pricing APIs.
 
 ---
 ## 📸 Screenshots
