@@ -11,6 +11,7 @@ from llmguard.exceptions import (
     BudgetExceededException,
     DailyBudgetExceededException,
     AllModelsExhaustedException,
+    UnknownModelException
 )
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -71,6 +72,8 @@ def chat(request: Request, req: ChatRequest):
             )
     except (BudgetExceededException, DailyBudgetExceededException, AllModelsExhaustedException) as e:
         raise HTTPException(status_code=429, detail=str(e))
+    except UnknownModelException as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
 
@@ -97,6 +100,9 @@ def stats(user_id: str):
         burn_rate_per_min=round(burn_rate, 8),
     )
 
+import os
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "providers": ["openai", "anthropic", "groq"], "db": "sqlite"}
+    db_type = "redis + sqlite" if os.environ.get("REDIS_URL") else "sqlite"
+    return {"status": "ok", "providers": ["openai", "anthropic", "groq"], "db": db_type}
