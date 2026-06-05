@@ -20,9 +20,11 @@ from fastapi.responses import JSONResponse
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(                         
-    title="LLMGuard",
-    description="Cost-aware middleware for LLM APIs",
+    title="LLM Cost Guard",
+    description="Cost-aware middleware for LLM APIs with real-time killswitch and budget enforcement.",
     version="1.0.0",
+    contact={"name": "Vanshika Ludhani"},
+    swagger_ui_parameters={"syntaxHighlight.theme": "monokai"},
 )
 
 app.state.limiter = limiter             

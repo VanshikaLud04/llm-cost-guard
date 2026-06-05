@@ -138,7 +138,7 @@ llmguard/
 ## 🔌 API Endpoints
 
 ### `POST /chat`
-Send a message through LLMGuard middleware.
+Send a message through LLM Cost Guard middleware.
 
 ```json
 {
