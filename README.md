@@ -87,12 +87,18 @@ python test_cost.py
 # Run multi-provider demo
 python demo.py
 
-# Start API server
+# Start API server locally
 uvicorn main:app --reload
 # → Open http://127.0.0.1:8000/docs for Swagger UI
 
+# Run with Docker and Redis (Production-ready)
+docker-compose up --build
+
 # Stress test with mock provider (no API keys needed)
 python stress_test.py
+
+# High-throughput load testing (500+ concurrent requests)
+python benchmark.py
 ```
 
 ---
@@ -237,7 +243,7 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 
 ## 🗺️ Roadmap
 
-- [ ] Redis storage backend for distributed deployments
+- [x] Redis storage backend for distributed deployments
 - [ ] Per-model budget caps (not just per-user)
 - [ ] Streaming response support
 
@@ -250,7 +256,10 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 - [Anthropic Python SDK](https://github.com/anthropic/anthropic-sdk-python)
 - [Groq Python SDK](https://github.com/groq/groq-python)
 - SQLite — lightweight persistent storage
-- Python 3.13
+- Redis — high-throughput caching layer
+- Docker & Docker Compose — containerization
+- GitHub Actions — CI/CD pipeline
+- Python 3.11
 
 ---
 
