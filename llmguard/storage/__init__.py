@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 from .sqlite import SQLiteStorage
 from .redis import RedisStorage
 
@@ -7,11 +8,14 @@ class CachedStorage:
         self.sqlite = SQLiteStorage()
         redis_url = os.environ.get("REDIS_URL")
         self.redis = RedisStorage(redis_url) if redis_url else None
+        # Single worker queue to serialize SQLite writes without blocking API
+        self.writer_queue = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def save(self, record: dict) -> None:
-        self.sqlite.save(record)
         if self.redis:
             self.redis.save(record)
+        # Offload SQLite write to background thread
+        self.writer_queue.submit(self.sqlite.save, record)
 
     def get_recent(self, user_id: str, window_seconds: int = 60) -> list[tuple]:
         if self.redis:
