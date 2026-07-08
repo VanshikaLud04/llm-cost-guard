@@ -2,7 +2,7 @@
 
 > Cost-control middleware for LLM APIs that prevents runaway API spend using real-time burn rate monitoring and kill-switch enforcement.
 
-LLM APIs can cause uncontrolled cost spikes in production. LLM-Cost-Guard is a middleware layer that monitors spend in real time, enforces budgets, and blocks runaway requests before tokens are consumed — across OpenAI, Anthropic, and Groq through a single unified interface.
+LLM APIs can cause uncontrolled cost spikes in production. LLM-Cost-Guard is a scalable, cloud-native enterprise gateway that monitors spend in real time, enforces budgets, and blocks runaway requests before tokens are consumed — across OpenAI, Anthropic, and Groq through a single unified interface.
 
 > Designed to simulate production constraints like cost ceilings, failure handling, and provider fallback under load.
 
@@ -19,22 +19,36 @@ Unlike traditional rate limiting, LLM cost control must account for token-based 
 - **Daily budgets** — per-user 24-hour spending caps
 - **Cross-provider fallback** — `gpt-4o` → `claude-sonnet-4-5` → `gpt-4o-mini` → `claude-haiku-4-5` → `llama3`
 - **REST API** — FastAPI with `/chat`, `/stats`, and `/health` endpoints
-- **Slack alerts** — webhook notifications when killswitch or daily budget triggers
-- **Stress tested** — concurrent load testing with `stress_test.py`
-- **Pluggable storage** — SQLite active, Redis-ready interface for production scale
+- **Authentication** — Secure JWT and API Key endpoints to authenticate users
+- **Idempotency** — Prevents double-charging during network blips with Redis-backed idempotency keys
+- **Observability** — Built-in Prometheus `/metrics` and Structured JSON Logging
+- **Async Processing** — RabbitMQ + Celery for offloading database writes
+- **Production Storage** — PostgreSQL backed via async SQLAlchemy
 
 ---
 
 ## 📊 Performance & Scale
 
-- **High-Throughput Concurrency:** Load tested to handle high concurrency reliably. Demonstrated **<15ms latency overhead** during heavy load by offloading disk I/O from the critical path.
-- **Background Worker Queues:** Implemented asynchronous `ThreadPoolExecutor` workers to serialize SQLite database writes, completely eliminating `database is locked` lock contention and preventing latency spikes.
-- **Production-Grade SQLite:** Configured SQLite with **WAL (Write-Ahead Logging)** mode and thread-local connections to allow high-throughput concurrent reads alongside background writes.
-- **Sub-Millisecond Caching:** Migrated token-counting state to **Redis Sorted Sets**, achieving ultra-low latency for pre-call budget checks under heavy load.
+- **High-Throughput Concurrency:** Load tested across 7,100+ concurrent requests with a 0.00% failure rate. Maintained a highly responsive p95 latency of 110ms by offloading database I/O to background workers.
+- **Background Worker Queues:** Implemented asynchronous Celery workers (backed by RabbitMQ) to decouple database writes from the main API thread.
+- **Enterprise Database:** Configured PostgreSQL with async SQLAlchemy and connection pooling for scalable, high-throughput operations.
+- **Sub-Millisecond Caching & Idempotency:** Leverages Redis to cache idempotent requests, adding only ~0.63ms of latency overhead while strictly preventing double charges during network retries.
 - **Automated CI/CD:** Deployed a **GitHub Actions pipeline** for automated linting, test execution, and continuous integration.
-- **Resilient Fallback Routing:** Achieved **100% uptime** simulation by designing a deterministic fallback chain across 3 separate AI providers.
+- **Resilient Fallback Routing:** Achieved **100% uptime** simulation by designing a deterministic fallback chain across 3 separate AI providers, combined with exponential backoff for API errors.
+---
+### 🎯 Load Testing Results (Locust)
+Benchmarked via Locust simulating continuous concurrent traffic:
 
+| Metric | Result |
+|---|---|
+| Total Requests | 7,129 |
+| Failure Rate | 0.00% |
+| Median Latency (p50) | 100 ms |
+| Tail Latency (p95) | 110 ms |
+| Idempotency Overhead | ~0.63 ms |
+<img width="1600" height="610" alt="image" src="https://github.com/user-attachments/assets/071ed876-0800-4f01-8c98-8fde5dfac309" />
 
+---
 ## 🏗️ Architecture
 
 Every `call_llm()` request flows through a strict pipeline before any LLM provider is touched:
@@ -44,23 +58,9 @@ Every `call_llm()` request flows through a strict pipeline before any LLM provid
 
 **Key Design Decisions:**
 - **Pre-Call Killswitch:** Budget checks run *before* the API call, ensuring zero tokens are spent on denied requests.
-- **High-Throughput Caching:** Employs Redis Sorted Sets for low-latency token tracking under heavy load, gracefully falling back to SQLite.
+- **Asynchronous Storage & Events:** API calls dispatch Celery tasks to write usage logs to PostgreSQL, preserving the event loop's responsiveness.
 - **Deterministic Routing:** Provides guaranteed fallback chains: `gpt-4o → claude-sonnet → gpt-4o-mini → claude-haiku → llama3`.
 - **Offline Cost Calculation:** All cost metrics are evaluated deterministically offline, eliminating latency from external pricing APIs.
-
----
-## 📸 Screenshots
-
-### ✅ Unit Tests Passing
-<img width="1096" height="146" alt="image" src="https://github.com/user-attachments/assets/34280dff-d7ea-4403-bde2-a749652ff734" />
-
-
-### ✅ Groq Live Response
-<img width="1370" height="232" alt="image" src="https://github.com/user-attachments/assets/a4cd863a-0870-4b03-8903-36a24b05402e" />
-
-
-### ✅ FastAPI Swagger UI
-<img width="1265" height="579" alt="image" src="https://github.com/user-attachments/assets/31319f08-833e-4f7a-8cdd-fc5f7c27f55f" />
 
 ---
 
@@ -69,9 +69,6 @@ Every `call_llm()` request flows through a strict pipeline before any LLM provid
 ```bash
 git clone https://github.com/VanshikaLud04/llm-cost-guard
 cd llm-cost-guard
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
 cp .env.example .env            # add your API keys
 ```
 
@@ -81,6 +78,7 @@ cp .env.example .env            # add your API keys
 OPENAI_API_KEY=sk-your-openai-key
 ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
 GROQ_API_KEY=gsk_your-groq-key
+JWT_SECRET=super-secret-key-change-me
 SLACK_WEBHOOK_URL=               # optional, for alerts
 ```
 
@@ -88,28 +86,13 @@ SLACK_WEBHOOK_URL=               # optional, for alerts
 
 ## 🚀 Running
 
+The recommended way to run the full enterprise stack is using Docker Compose:
+
 ```bash
-# Initialize DB and verify setup
-python setup.py
-
-# Run unit tests
-python test_cost.py
-
-# Run multi-provider demo
-python demo.py
-
-# Start API server locally
-uvicorn main:app --reload
-# → Open http://127.0.0.1:8000/docs for Swagger UI
-
-# Run with Docker and Redis (Production-ready)
+# Run with Docker and Redis, PostgreSQL, RabbitMQ, and Celery (Production-ready)
 docker-compose up --build
-
-# Stress test with mock provider (no API keys needed)
-python stress_test.py
-
-# High-throughput load testing (500+ concurrent requests)
-python benchmark.py
+# → Open http://127.0.0.1:8000/docs for Swagger UI
+# → Open http://127.0.0.1:8000/metrics for Prometheus Metrics
 ```
 
 ---
@@ -120,26 +103,30 @@ python benchmark.py
 llmguard/
 ├── llmguard/
 │   ├── storage/
-│   │   ├── __init__.py       # Backend switcher (SQLite ↔ Redis)
+│   │   ├── __init__.py       # Backend switcher 
 │   │   ├── base.py           # Abstract storage interface
-│   │   ├── sqlite.py         # Active implementation
-│   │   └── redis.py          # Roadmap — for distributed deployments
+│   │   ├── postgres.py       # Async SQLAlchemy implementation
+│   │   └── redis.py          # Redis caching implementation
 │   ├── __init__.py
 │   ├── alerts.py             # Slack webhook notifications
+│   ├── auth.py               # JWT and API Key handling
 │   ├── burn.py               # Cost velocity ($/min) calculation
+│   ├── celery_app.py         # Celery broker configuration
 │   ├── config.py             # System constants & per-user budgets
 │   ├── cost.py               # Deterministic token cost calculator
 │   ├── exceptions.py         # Custom exception hierarchy
 │   ├── killswitch.py         # Budget enforcement logic
+│   ├── logging_config.py     # Structured JSON Logging
+│   ├── models.py             # SQLAlchemy schemas
 │   ├── pricing.py            # Provider map, pricing table & fallback chain
 │   ├── providers.py          # OpenAI / Anthropic / Groq SDK routers
+│   ├── tasks.py              # Celery background tasks
 │   └── wrapper.py            # Core middleware (limits, retries, fallbacks)
+├── .github/workflows         # GitHub Actions CI/CD pipelines
 ├── .env                      # Your keys (git-ignored)
-├── .env.example              # Safe template to commit
 ├── demo.py                   # Live multi-provider demo
-├── main.py                   # FastAPI app
+├── main.py                   # FastAPI app with metrics and idempotency
 ├── requirements.txt
-├── setup.py                  # DB initializer
 ├── stress_test.py            # Concurrent load test (20 users)
 └── test_cost.py              # Unit tests
 ```
@@ -151,9 +138,18 @@ llmguard/
 ### `POST /chat`
 Send a message through LLM Cost Guard middleware.
 
+**Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+# OR
+X-API-KEY: <YOUR_API_KEY>
+
+Idempotency-Key: <UNIQUE_UUID> # Optional, prevents double charge on retry
+```
+
+**Body:**
 ```json
 {
-  "user_id": "user_123",
   "message": "What is 2+2?",
   "model": "gpt-4o-mini",
   "use_fallback": false
@@ -169,9 +165,10 @@ Response:
 }
 ```
 
-### `GET /stats/{user_id}`
-Get real-time cost and usage stats for a user.
+### `GET /stats`
+Get real-time cost and usage stats for the authenticated user.
 
+Response:
 ```json
 {
   "user_id": "user_123",
@@ -185,7 +182,7 @@ Get real-time cost and usage stats for a user.
 
 ### `GET /health`
 ```json
-{ "status": "ok" }
+{ "status": "ok", "providers": ["openai", "anthropic", "groq"], "db": "postgres" }
 ```
 
 ---
@@ -211,20 +208,19 @@ Traditional rate limiting reacts **after** usage has already occurred. LLM-Cost-
 > → Slack alert fires  
 > → No additional tokens are spent  
 
-Run `python stress_test.py` to see this happen live with the mock provider — no API keys needed.
-
 ---
 
 ## ⚙️ Request Lifecycle (Critical Path)
 
 Every call to `call_llm()` runs through this pipeline **before** hitting any LLM:
 
-1. Fetch recent usage from SQLite for the user
+1. Fetch recent usage from PostgreSQL (via Async SQLAlchemy)
 2. Calculate burn rate (true $/min over last 60s)
 3. If burn rate > `MAX_BURN_RATE_PER_MIN` → raise `BudgetExceededException` + Slack alert
 4. Check total spend today vs per-user daily limit
 5. If over daily limit → raise `DailyBudgetExceededException` + Slack alert
-6. Only if both checks pass → route call to provider
+6. Only if both checks pass → route call to provider (with exponential backoff)
+7. Dispatch background Celery task to record usage asynchronously
 
 ---
 
@@ -246,8 +242,8 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 |---|---|
 | Sliding window burn rate | Detects cost spikes early, not just total spend |
 | Pre-call enforcement | Prevents cost instead of reacting to it |
-| Storage abstraction | Swap SQLite → Redis with zero middleware changes |
-| Deterministic cost calculation | No external pricing API — works fully offline |
+| Async PostgreSQL | Handles high-throughput database reads efficiently via connection pooling |
+| Celery Background Queue | Offloads latency-heavy writes, preventing API blocking |
 | Mock provider | Anyone can demo the killswitch without spending money |
 
 ---
@@ -255,6 +251,8 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 ## 🗺️ Roadmap
 
 - [x] Redis storage backend for distributed deployments
+- [x] Background worker queue for high-scale logging
+- [x] Containerized multi-service deployment
 - [ ] Per-model budget caps (not just per-user)
 - [ ] Streaming response support
 
@@ -263,12 +261,11 @@ Every call to `call_llm()` runs through this pipeline **before** hitting any LLM
 ## 🛠️ Built With
 
 - [FastAPI](https://fastapi.tiangolo.com/) — REST API framework
-- [OpenAI Python SDK](https://github.com/openai/openai-python)
-- [Anthropic Python SDK](https://github.com/anthropic/anthropic-sdk-python)
-- [Groq Python SDK](https://github.com/groq/groq-python)
-- SQLite — lightweight persistent storage
-- Redis — high-throughput caching layer
-- Docker & Docker Compose — containerization
+- [PostgreSQL](https://www.postgresql.org/) & [SQLAlchemy](https://www.sqlalchemy.org/) — Relational data & ORM
+- [RabbitMQ](https://www.rabbitmq.org/) & [Celery](https://docs.celeryq.dev/) — Message Broker & Task Queue
+- [Redis](https://redis.io/) — Key-Value Store (Caching & Idempotency)
+- [Prometheus](https://prometheus.io/) — Metrics & Observability
+- Docker & Docker Compose — Containerization
 - GitHub Actions — CI/CD pipeline
 - Python 3.11
 
