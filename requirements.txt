@@ -11,3 +11,12 @@ redis
 aiohttp
 pytest
 flake8
+sqlalchemy
+asyncpg
+psycopg2-binary
+pyjwt
+passlib[bcrypt]
+celery
+prometheus-client
+python-json-logger
+pika
