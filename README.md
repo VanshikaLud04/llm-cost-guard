@@ -298,6 +298,8 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/llmguard
 
 The recommended way to run the full enterprise stack:
 
+The recommended way to run the full enterprise stack is using Docker Compose:
+
 ```bash
 docker-compose up --build
 # → Open http://127.0.0.1:8000/docs for Swagger UI
